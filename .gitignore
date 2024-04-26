@@ -1,6 +1,7 @@
 .idea/
 
-training/
+training/fill50k
+training/data
 lightning_logs/
 image_log/
 
