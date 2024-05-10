@@ -26,13 +26,13 @@ model.sd_locked = sd_locked
 model.only_mid_control = only_mid_control
 
 # # Define the checkpoint callback
-# checkpoint_callback = ModelCheckpoint(
-#     monitor='train_loss',  # Monitor validation loss
-#     filename='epoch_{epoch:02d}',  # Filename format
-#     dirpath='./models',
-#     save_top_k=-1,  # Save all checkpoints
-#     every_n_epochs=1,  # Save every 10 epochs
-# )
+checkpoint_callback = ModelCheckpoint(
+    monitor='train_loss',  # Monitor validation loss
+    filename='epoch_{epoch:02d}',  # Filename format
+    dirpath='./models',
+    save_top_k=-1,  # Save all checkpoints
+    every_n_epochs=1,  # Save every 10 epochs
+)
 
 # Misc
 dataset = UnconditionalDataset()
@@ -40,7 +40,7 @@ train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 logger = ImageLogger(batch_frequency=logger_freq)
 
 for epoch in range(num_epochs):
-    trainer = pl.Trainer(gpus=1, precision=32, max_epochs = 1, default_root_dir="./models")
+    trainer = pl.Trainer(gpus=1, precision=32, max_epochs = 1, default_root_dir="../models")
     trainer.fit(model, train_dataloader)
     checkpoint_path = f'./models/model_weights_{epoch}.pth'
     torch.save(model.state_dict(), checkpoint_path)

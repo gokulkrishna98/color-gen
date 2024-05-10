@@ -16,6 +16,18 @@ from cldm.ddim_hacked import DDIMSampler
 A_PROMPT_DEFAULT = "best quality, extremely detailed"
 N_PROMPT_DEFAULT = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality"
 
+def apply_color(image, color_map):
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+    color_map = cv2.cvtColor(color_map, cv2.COLOR_RGB2LAB)
+
+    l, _, _ = cv2.split(image)
+    _, a, b = cv2.split(color_map)
+
+    merged = cv2.merge([l, a, b])
+
+    result = cv2.cvtColor(merged, cv2.COLOR_LAB2RGB)
+    return result
+
 def run_sampler(
     model,
     input_image: np.ndarray,
@@ -41,10 +53,7 @@ def run_sampler(
         img = resize_image(HWC3(input_image), image_resolution)
         H, W, C = img.shape
 
-        detected_map = np.zeros_like(img, dtype=np.uint8)
-        detected_map[np.min(img, axis=2) < 127] = 255
-
-        control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
+        control = torch.from_numpy(img.copy()).float().cuda() / 255.0
         control = torch.stack([control for _ in range(num_samples)], dim=0)
         control = einops.rearrange(control, "b h w c -> b c h w").clone()
 
@@ -100,8 +109,9 @@ def run_sampler(
         )
 
         results = [x_samples[i] for i in range(num_samples)]
+        colored_results = [apply_color(img, result) for result in results]
 
-        return results
+        return [img] + results + colored_results
 
 apply_canny = CannyDetector()
 checkpoint_path = './models/model_weights_0.pth'
