@@ -111,7 +111,7 @@ def run_sampler(
         results = [x_samples[i] for i in range(num_samples)]
         colored_results = [apply_color(img, result) for result in results]
 
-        return [img] + results + colored_results
+        return colored_results
 
 apply_canny = CannyDetector()
 checkpoint_path = './models/model_weights_0.pth'
