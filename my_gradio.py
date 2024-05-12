@@ -11,6 +11,9 @@ import random
 from pytorch_lightning import seed_everything
 from annotator.util import resize_image, HWC3
 from annotator.canny import CannyDetector
+from annotator.midas import MidasDetector
+from annotator.hed import HEDdetector, nms
+from annotator.mlsd import MLSDdetector
 from cldm.model import create_model, load_state_dict
 from cldm.ddim_hacked import DDIMSampler
 
@@ -38,7 +41,7 @@ def run_sampler(
     a_prompt: str = A_PROMPT_DEFAULT,
     n_prompt: str = N_PROMPT_DEFAULT,
     num_samples: int = 1,
-    image_resolution: int = 256,
+    image_resolution: int = 512,
     ddim_steps=20,
     guess_mode=False,
     strength=1.0,
@@ -47,32 +50,32 @@ def run_sampler(
     eta=0.0,
     show_progress: bool = True
 ):
-    model = create_model('/Users/ayushnaique28/vs_code/Python/color-gen/models/cldm_v15.yaml').cpu()
-    model.load_state_dict(torch.load('/Users/ayushnaique28/vs_code/Python/color-gen/models/gokul.ckpt', map_location="cuda"), strict=False)
+    model = create_model('/Users/ayushnaique28/vs_code/Python/color-gen/models/cldm_v21.yaml').cpu()
+    model.load_state_dict(load_state_dict('/Users/ayushnaique28/vs_code/Python/color-gen/models/gokul.ckpt', location="mps"))
 
     # Print model's state_dict
     # print("Model's state_dict:")
     # for param_tensor in model.state_dict():
     #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
 
-    model = model.to(torch.device("cuda"))
+    model = model.to(torch.device("mps"))
     ddim_sampler = DDIMSampler(model)
     with torch.no_grad():
         if torch.cuda.is_available():
             model = model.cuda()
 
         input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB if necessary
-        # input_image = cv2.cvtColor(input_image, cv2.COLOR_RGB2LAB)
-        # L = lab[:,:,0]
+        lab = cv2.cvtColor(input_image, cv2.COLOR_RGB2LAB)
+        input_image = lab[:,:,0]
         input_image = input_image.astype(np.uint8)  # Normalize the image to [0, 1]
 
         img = resize_image(HWC3(input_image), image_resolution)
         H, W, C = img.shape
 
-        detected_map = apply_canny(img, 100, 200)
-        detected_map = HWC3(detected_map)
+        # detected_map = apply_canny(img, 100, 200)
+        # detected_map = HWC3(detected_map)
 
-        control = torch.from_numpy(detected_map.copy()).float().to(torch.device("cuda")) / 255.0
+        control = torch.from_numpy(img.copy()).to(torch.float32).to(torch.device("mps")) / 255.0
         control = torch.stack([control for _ in range(num_samples)], dim=0)
         control = einops.rearrange(control, "b h w c -> b c h w").clone()
 
@@ -131,8 +134,7 @@ def run_sampler(
         results = [x_samples[i] for i in range(num_samples)]
         colored_results = [apply_color(img, result) for result in results]
 
-        return colored_results + [255 - detected_map] 
-
+        return colored_results + results + [img] + [lab]
 block = gr.Blocks().queue()
 with block:
     with gr.Row():
